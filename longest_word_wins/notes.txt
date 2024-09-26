@@ -1,0 +1,10 @@
+longest word wins gameplay
+
+singleplayer
+increasing lava rising levels
+asks simple questions
+lava kills you
+timer that counts down from 20
+spell checking
+
+
