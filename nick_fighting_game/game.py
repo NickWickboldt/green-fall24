@@ -1,108 +1,237 @@
+# Imports Libraries
 import pygame
+import random
 
 # Initialize pygame
 pygame.init()
 
 # Set up display
-window_width, window_height = 1000, 700
-win = pygame.display.set_mode((window_width, window_height))
-pygame.display.set_caption("Move the Square")
+WINDOW_WIDTH, WINDOW_HEIGHT = 1000, 700  # Constants
+win = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))  # Set window size
+pygame.display.set_caption("Fighting Game!")
 
-# Define colors
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
+points = 0
 
-bullets = [] #array
+font = pygame.font.SysFont(None, 36)
+font = pygame.font.Font('./cool_font.ttf', 36)
+label_surface = font.render("Points: " + str(points), True, (0, 0, 0))
 
-# Define the player's starting position and size
-player_size = 50
-player_x, player_y = window_width // 2, window_height // 2
-player_speed = 7
+# Game variables
+PLAYER_SIZE = 50
+BULLET_RADIUS = 10
+PLAYER_SPEED = 7
+ENEMY_SIZE = 50 
+ENEMY_SPEED = 2
+WHITE = (255, 255, 255)  # RGB
+BLACK = (0, 0, 0)  # RGB
+RED = (255, 0, 0)  # RGB
 
-# Set up the game clock
-clock = pygame.time.Clock()
+# Load images
+bomb_image = pygame.image.load("bomb.png").convert_alpha()
+resized_bomb_image = pygame.transform.scale(bomb_image, (30, 30))
 
-
-
-# Main game loop
-running = True
-while running:
-    left = False
-    right = False
-    up = False
-    down = False
-    holding_gun = False
-    shoot_bullet = False
-    # Limit the frame rate to 60 FPS
-    clock.tick(60)
-
-    # Check for events
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-
-    # Get the current state of all keys
-    keys = pygame.key.get_pressed()
-
-    # Update player position based on WASD keys
-    if keys[pygame.K_w]:  # Move up
-        player_y -= player_speed
-    if keys[pygame.K_s]:  # Move down
-        player_y += player_speed
-    if keys[pygame.K_a]:  # Move left
-        player_x -= player_speed
-    if keys[pygame.K_d]:  # Move right
-        player_x += player_speed
-
-    if keys[pygame.K_UP]:
-        up = True
-    if keys[pygame.K_DOWN]:
-        down = True
-    if keys[pygame.K_LEFT]:
-        left = True
-    if keys[pygame.K_RIGHT]:
-        right = True
-
-    if keys[pygame.K_SPACE]:
-        holding_gun = True
-    
-    if keys[pygame.K_RCTRL]:
-        shoot_bullet = True
-
-    # Prevent the player from going off the screen
-    player_x = max(0, min(window_width - player_size, player_x))
-    player_y = max(0, min(window_height - player_size, player_y))
-
-    # Fill the window with a blank grid (white background)
-    win.fill(WHITE)
-
-    if holding_gun:
-        pygame.draw.rect(win, (0,0,255), (player_x + 20, player_y - 30, 10, 30))
-        if shoot_bullet:
-            pygame.draw.circle(win, (0,0,0), (player_x + 20, player_y - 30), 10)
-            bullets.append((player_x + 20, player_y - 30)) # (x,y) ~ tuple
-
-    for bullet in bullets:
-        pygame.draw.circle(win, (0,0,0), (bullet[0], bullet[1]), 10)
-    
-
-    # Draw the player (a black square)
-    pygame.draw.rect(win, BLACK, (player_x, player_y, player_size, player_size))
-
-    if left:
-        pygame.draw.rect(win, (255, 0, 0), (player_x - 10, player_y - 10, 10, 70))
-    elif right:
-        pygame.draw.rect(win, (255, 0, 0), (player_x + 50, player_y - 10, 10, 70))
-    elif up:
-        pygame.draw.rect(win, (255, 0, 0), (player_x - 10, player_y - 10, 70, 10))
-    elif down:
-        pygame.draw.rect(win, (255, 0, 0), (player_x - 10, player_y + 50, 70, 10))
-    else:
-        pygame.draw.rect(win, (255, 0, 0), (player_x + 10, player_y + 10, 30, 30))
+boom_image = pygame.image.load("boom.png").convert_alpha()
+resized_boom_image = pygame.transform.scale(boom_image, (100, 100))
 
 
-    # Update the display
-    pygame.display.flip()
+# Game Classes
+class Player:
+    def __init__(self):
+        self.x = WINDOW_WIDTH // 2
+        self.y = WINDOW_HEIGHT // 2
+        self.size = PLAYER_SIZE
+        self.speed = PLAYER_SPEED
+        self.holding_gun = False
+        self.shoot_bullet = False
+        self.reloading = False
+        self.frames_since_last_shot = 0
 
-# Quit pygame when the loop ends
-pygame.quit()
+    def handle_keys(self):
+        keys = pygame.key.get_pressed()
+        self.holding_gun = keys[pygame.K_SPACE]  # Test for space press
+        self.shoot_bullet = keys[pygame.K_RCTRL]  # Test for right ctrl press
+
+        if keys[pygame.K_w]:
+            self.y -= self.speed
+        if keys[pygame.K_s]:
+            self.y += self.speed
+        if keys[pygame.K_a]:
+            self.x -= self.speed
+        if keys[pygame.K_d]:
+            self.x += self.speed
+
+        # Keep player within screen bounds
+        self.x = max(0, min(WINDOW_WIDTH - self.size, self.x))
+        self.y = max(0, min(WINDOW_HEIGHT - self.size, self.y))
+
+    def shoot(self):
+        if self.holding_gun and self.shoot_bullet and not self.reloading:
+            self.reloading = True
+            self.frames_since_last_shot = 0
+            return Bullet(self.x + 20, self.y - 30)
+        return None
+
+    def update(self):
+        self.frames_since_last_shot += 1
+        if self.frames_since_last_shot >= 30:
+            self.reloading = False
+
+    def draw(self):
+        pygame.draw.rect(win, BLACK, (self.x, self.y, self.size, self.size))
+        if self.holding_gun:
+            pygame.draw.rect(win, (0, 0, 255), (self.x + 20, self.y - 30, 10, 30))
+
+
+class Enemy:
+    def __init__(self, x=None, y=None, speed=ENEMY_SPEED):
+        self.size = ENEMY_SIZE
+        self.speed = speed
+        self.alive = True
+        if x is None or y is None:
+            self.random_position()
+        else:
+            self.x = x
+            self.y = y
+
+    def random_position(self):
+        self.x = random.randint(0, WINDOW_WIDTH - self.size)
+        self.y = random.randint(0, WINDOW_HEIGHT - self.size)
+
+    def moves_towards_player(self, player_x, player_y):
+        if self.alive:
+            if self.x < player_x:
+                self.x += self.speed
+            elif self.x > player_x:
+                self.x -= self.speed
+            if self.y < player_y:
+                self.y += self.speed
+            elif self.y > player_y:
+                self.y -= self.speed
+    def check_collision_with_player(self, player_x, player_y):
+        return (
+            self.alive
+            and self.x >= player_x
+            and self.x <= player_x + PLAYER_SIZE
+            and self.y >= player_y
+            and self.y <= player_y + PLAYER_SIZE
+        )
+
+    def draw(self):
+        if self.alive:
+            pygame.draw.rect(win, RED, (self.x, self.y, self.size, self.size))
+        else:
+            win.blit(resized_bomb_image, (self.x, self.y))
+
+
+class Explosion:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.timer = 30  # Duration to display explosion in frames
+
+    def draw(self):
+        if self.timer > 0:
+            win.blit(resized_boom_image, (self.x, self.y))
+            self.timer -= 1  # Decrease timer
+
+
+class Bullet:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def move(self):
+        self.y -= 5  # Move bullet up
+
+    def check_collision_with_enemy(self, enemy):
+        return (
+            enemy.alive
+            and self.x >= enemy.x
+            and self.x <= enemy.x + enemy.size
+            and self.y >= enemy.y
+            and self.y <= enemy.y + enemy.size
+        )
+
+    def draw(self):
+        pygame.draw.circle(win, BLACK, (self.x, self.y), BULLET_RADIUS)
+
+
+class Game:
+    def __init__(self):
+        self.player = Player()
+        self.enemies = [Enemy()]  # Start with one enemy
+        self.bullets = []
+        self.explosions = []
+        self.running = True
+        self.clock = pygame.time.Clock()
+
+    def split_enemy(self, enemy):
+        global points
+        """Splits the given enemy into two new enemies of the same size."""
+        self.explosions.append(Explosion(enemy.x, enemy.y))
+        # Spawn two new enemies near the original one
+        self.enemies.append(Enemy(enemy.x - enemy.size, enemy.y - enemy.size, enemy.speed * random.random() * 2))
+        self.enemies.append(Enemy(enemy.x + enemy.size, enemy.y + enemy.size ,enemy.speed * random.random() * 2))
+        # Remove the original enemy
+        self.enemies.remove(enemy)
+        points+=1
+
+    def handle_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+
+    def update(self):
+        self.player.handle_keys()
+        self.player.update()
+
+        for enemy in self.enemies:
+            enemy.moves_towards_player(self.player.x, self.player.y)
+
+        for bullet in self.bullets[:]:
+            bullet.move()
+            for enemy in self.enemies[:]:
+                if bullet.check_collision_with_enemy(enemy):
+                    self.split_enemy(enemy)  # Split the enemy
+                    self.bullets.remove(bullet)
+                    break
+
+        self.bullets = [bullet for bullet in self.bullets if bullet.y > 0]
+        self.explosions = [explosion for explosion in self.explosions if explosion.timer > 0]
+
+        for enemy in self.enemies:
+            if enemy.check_collision_with_player(self.player.x, self.player.y):
+                self.running = False
+
+        bullet = self.player.shoot()
+        if bullet:
+            self.bullets.append(bullet)
+
+        
+
+    def draw(self):
+        win.fill(WHITE)
+        self.player.draw()
+        for enemy in self.enemies:
+            enemy.draw()
+        for bullet in self.bullets:
+            bullet.draw()
+        for explosion in self.explosions:
+            explosion.draw()
+        label_surface = font.render(f"Points: {points}", True, (0,0,0))
+        win.blit(label_surface, (50, 50))
+        pygame.display.flip()
+
+    def run(self):
+        while self.running:
+            self.clock.tick(60)
+            self.handle_events()
+            self.update()
+            self.draw()
+        pygame.quit()
+
+
+# Run the game
+if __name__ == "__main__":
+    game = Game()
+    game.run()
