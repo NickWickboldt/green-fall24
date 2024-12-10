@@ -1,0 +1,24 @@
+Create a quiz program in Python.
+    - The program should consist of two files.
+    - The program should have at least 10 questions
+    - The questions should be multiple choice with 4 possible answers
+    - Use if statements, for loops, etc
+    - Challenge: Add sounds, noises, music
+
+Hint: Use a list of questions, questions are like below
+
+question1 = {
+    "question": "What is?",
+    "answer1": "asdfsd",
+    "answer2": "fdsa",
+    "answer3": "jfjfjf",
+    "answer4": "8203"
+}
+
+questions = [question1, question2, question3, ...]
+
+in the other file:
+import questions
+loop through questions
+ask each question
+test the user's answer
